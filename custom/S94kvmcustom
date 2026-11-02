@@ -1,0 +1,31 @@
+#!/bin/sh
+# Своя сборка NanoKVM: возвращает страницу для телефона и защиту от обновлений.
+# Лежит вне /kvmapp, поэтому переживает обновление приложения.
+D=/root/custom
+apply_ui() {
+  # S95 запускает сервер и web из копии в RAM; обновляем также живой каталог.
+  for W in /kvmapp/server/web /tmp/server/web; do
+    if [ -f "$D/m.html" ] && [ -d "$W" ]; then
+      cp "$D/m.html" "$W/m.html"
+      chmod 644 "$W/m.html"
+      if [ -d "$D/branding" ]; then
+        mkdir -p "$W/branding"
+        cp "$D/branding/"* "$W/branding/"
+        chmod 644 "$W/branding/"*
+      fi
+      sed -i '/kvm-ui/d' "$W/index.html"
+      sed -i "/<head>/r $D/inject.html" "$W/index.html"
+    fi
+  done
+}
+case "$1" in
+  refresh-ui) apply_ui ;;
+  start)
+    apply_ui
+    grep -q cdn.sipeed.com /etc/hosts || echo "0.0.0.0 cdn.sipeed.com" >> /etc/hosts
+    # Сервер видит раздел карты только на чтение, запись идёт с NanoKVM (заводская логика S01fs/S03usbdev)
+    [ -e /boot/usb.disk0 ] && [ ! -e /boot/usb.disk0.ro ] && touch /boot/usb.disk0.ro
+    [ -x "$D/kvmcustom-watch" ] && ! pidof kvmcustom-watch >/dev/null && "$D/kvmcustom-watch" </dev/null >/dev/null 2>&1 &
+    ;;
+esac
+exit 0

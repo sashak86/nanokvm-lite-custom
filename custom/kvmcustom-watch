@@ -1,0 +1,14 @@
+#!/bin/sh
+# После отключения образа заводской сервер отдаёт раздел хосту на запись и закрывает /data.
+# Возвращаем правило: хост читает, пишет только NanoKVM.
+L=/sys/kernel/config/usb_gadget/g0/functions/mass_storage.disk0/lun.0
+while sleep 3; do
+  [ -e /boot/usb.disk0.ro ] || continue
+  [ "$(cat $L/file 2>/dev/null)" = /dev/mmcblk0p3 ] || continue
+  if [ "$(cat $L/ro)" = 0 ]; then
+    echo > $L/file
+    echo 1 > $L/ro
+    echo /dev/mmcblk0p3 > $L/file
+  fi
+  grep -q ' /data exfat ro' /proc/mounts && mount -o remount,rw /data
+done
